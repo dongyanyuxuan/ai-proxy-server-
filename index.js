@@ -15,14 +15,21 @@ app.get('/', (req, res) => {
 // Gemini API代理 - 使用免费层级
 app.post('/api/gemini', async (req, res) => {
   try {
-    console.log('Received request with prompt length:', req.body.prompt.length);
-    if (req.body.image) {
-      console.log('Received image with length:', req.body.image.length);
-    }
+    console.log('Received request:', {
+      promptLength: req.body.prompt.length,
+      model: req.body.model,
+      hasImage: !!req.body.image
+    });
+
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+    console.log('Calling Gemini API:', {
+      url: apiUrl,
+      apiKey: process.env.GEMINI_API_KEY ? 'Present' : 'Missing'
+    });
 
     const response = await axios({
       method: 'post',
-      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+      url: apiUrl,
       headers: {
         'Content-Type': 'application/json'
       },
@@ -36,7 +43,7 @@ app.post('/api/gemini', async (req, res) => {
             req.body.image ? {
               inline_data: {
                 mime_type: 'image/jpeg',
-                data: req.body.image.split(',')[1]  // 移除 data:image/jpeg;base64, 前缀
+                data: req.body.image.split(',')[1]
               }
             } : null
           ].filter(Boolean)
@@ -44,14 +51,25 @@ app.post('/api/gemini', async (req, res) => {
       }
     });
     
-    console.log('API Response:', response.data);
+    console.log('Gemini API Response:', {
+      status: response.status,
+      hasData: !!response.data,
+      hasCandidates: !!response.data?.candidates
+    });
+
     res.json(response.data);
   } catch (error) {
-    console.error('API Error:', {
+    console.error('Detailed API Error:', {
       message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
+      status: error.response?.status,
+      data: error.response?.data,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers
+      }
     });
+
     res.status(500).json({ 
       error: 'Internal Server Error',
       message: error.message,
